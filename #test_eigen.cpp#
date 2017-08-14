@@ -83,7 +83,7 @@ int main()
         if(diff < tolerance){
             std::cout << "iteration mumber = " << i << std::endl;
             break;
-        }
+y        }
 
     }
     clock_t end = clock();
