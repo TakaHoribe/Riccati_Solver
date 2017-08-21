@@ -17,6 +17,7 @@ int main()
     Eigen::Matrix<double, dim_x, dim_u> B;
     Eigen::Matrix<double, dim_x, dim_x> Q;
     Eigen::Matrix<double, dim_u, dim_u> R;
+    Eigen::Matrix<double, dim_u, dim_x> K;
     /*
     A <<
         0.1, 1.0,
@@ -37,11 +38,11 @@ int main()
         0.0,
         0.0;
 
-    A(1,1) = - 15.0;
-    A(1,2) = 10.0;
-    A(3,3) = - 15.0;
-    B(1,0) = 10.0;
-    B(3,0) = 1.0;
+    A(1,1) = - 83.0;
+    A(1,2) = 16.0;
+    A(3,3) = - 83.0;
+    B(1,0) = 20.0;
+    B(3,0) = 2.6;
 
     Q <<
         1.0, 0.0, 0.0, 0.0,
@@ -69,14 +70,32 @@ int main()
 
     double tolerance = 1E-5;
     uint iter_max = 100000;
-    double dt = 0.001;
+    double dt = 0.01;
+
+    // discritization
+    Eigen::Matrix<double, dim_x, dim_x> I = Eigen::MatrixXd::Identity(dim_x, dim_x);
+    Eigen::Matrix<double, dim_x, dim_x> Ad;
+    Ad = (I + 0.5 * dt * A) * (I - 0.5 * dt * A).inverse();
+    Eigen::Matrix<double, dim_x, dim_u> Bd;
+    Bd = B * dt;
+    Eigen::Matrix<double, dim_x, dim_x> AdT = Ad.transpose();
+    Eigen::Matrix<double, dim_u, dim_x> BdT = Bd.transpose();
+
+
     std::vector<double> diff_mat;
     Eigen::Matrix<double, dim_x, dim_x> P = Q;
 
     clock_t start = clock();
     for(uint i = 0; i < iter_max; ++i){
-        Eigen::Matrix<double, dim_x, dim_x> P_next = P +
+        // -- continuous solver --
+        /*
+          Eigen::Matrix<double, dim_x, dim_x> P_next = P +
             (P * A + AT * P - P * B  * R.inverse() * BT * P + Q) * dt;
+        */
+        // -- discritized solver --
+        Eigen::Matrix<double, dim_x, dim_x> P_next =
+            AdT * P * Ad - AdT * P * Bd * (R + BdT * P * Bd).inverse() * BdT * P * Ad + Q;
+
         double diff = fabs((P_next - P).maxCoeff());
         diff_mat.push_back(diff);
         P = P_next;
@@ -90,6 +109,9 @@ int main()
     std::cout << "computation time = " <<
         (double)(end - start) / CLOCKS_PER_SEC << "sec.\n";
     PRINT_MAT(P);
+    K = (R + BdT * P * Bd).inverse() * BdT * P * Ad;
+    PRINT_MAT(K);
+
 
 
 
@@ -114,9 +136,10 @@ int main()
     // Extract only stable eigenvectors into eigvec
     std::vector<int> i_vec;
     Eigen::Matrix<std::complex<double>, 2*dim_x, dim_x> eigvec;
+    int j = 0;
+
     for(int i = 0; i < 2 * dim_x; ++i){
         if(Eigs.eigenvalues()[i].real() < 0){
-            static int j = 0;
             eigvec.col(j) = Eigs.eigenvectors().block(0, i, 2*dim_x, 1);
             ++j;
         }
@@ -132,6 +155,10 @@ int main()
     std::cout << "computation time = " <<
         (double)(end - start) / CLOCKS_PER_SEC << "sec.\n";
     PRINT_MAT(P);
+    // Eigen::Matrix<double, dim_u, dim_x> K;
+    K = R.inverse() * BT * P;
+
+    PRINT_MAT(K);
 
     return 0;
 
