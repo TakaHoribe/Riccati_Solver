@@ -5,11 +5,11 @@
 
 #define PRINT_MAT(X) std::cout << #X << ":\n" << X << std::endl << std::endl
 
-bool solveRiccatiIteration(const Eigen::MatrixXd &A, const Eigen::MatrixXd &B,
-                           const Eigen::MatrixXd &Q, const Eigen::MatrixXd &R,
-                           Eigen::MatrixXd &P, const double dt = 0.001,
-                           const double &tolerance = 1.E-5,
-                           const uint iter_max = 100000) {
+bool solveRiccatiIterationC(const Eigen::MatrixXd &A, const Eigen::MatrixXd &B,
+                            const Eigen::MatrixXd &Q, const Eigen::MatrixXd &R,
+                            Eigen::MatrixXd &P, const double dt = 0.001,
+                            const double &tolerance = 1.E-5,
+                            const uint iter_max = 100000) {
   P = Q; // initialize
 
   Eigen::MatrixXd P_next;
@@ -21,6 +21,35 @@ bool solveRiccatiIteration(const Eigen::MatrixXd &A, const Eigen::MatrixXd &B,
   double diff;
   for (uint i = 0; i < iter_max; ++i) {
     P_next = P + (P * A + AT * P - P * B * Rinv * BT * P + Q) * dt;
+    diff = fabs((P_next - P).maxCoeff());
+    P = P_next;
+    if (diff < tolerance) {
+      std::cout << "iteration mumber = " << i << std::endl;
+      return true;
+    }
+  }
+  return false; // over iteration limit
+}
+
+bool solveRiccatiIterationD(const Eigen::MatrixXd &Ad,
+                            const Eigen::MatrixXd &Bd, const Eigen::MatrixXd &Q,
+                            const Eigen::MatrixXd &R, Eigen::MatrixXd &P,
+                            const double &tolerance = 1.E-5,
+                            const uint iter_max = 100000) {
+  P = Q; // initialize
+
+  Eigen::MatrixXd P_next;
+
+  Eigen::MatrixXd AdT = Ad.transpose();
+  Eigen::MatrixXd BdT = Bd.transpose();
+  Eigen::MatrixXd Rinv = R.inverse();
+
+  double diff;
+  for (uint i = 0; i < iter_max; ++i) {
+    // -- discritized solver --
+    P_next = AdT * P * Ad -
+             AdT * P * Bd * (R + BdT * P * Bd).inverse() * BdT * P * Ad + Q;
+
     diff = fabs((P_next - P).maxCoeff());
     P = P_next;
     if (diff < tolerance) {
@@ -99,10 +128,27 @@ int main() {
   PRINT_MAT(R);
 
   /* == iteration based Riccati solution (continuous) == */
-  std::cout << "-- Iteration based method --" << std::endl;
+  std::cout << "-- Iteration based method (continuous) --" << std::endl;
   clock_t start = clock();
-  solveRiccatiIteration(A, B, Q, R, P);
+  solveRiccatiIterationC(A, B, Q, R, P);
   clock_t end = clock();
+  std::cout << "computation time = " << (double)(end - start) / CLOCKS_PER_SEC
+            << "sec." << std::endl;
+  PRINT_MAT(P);
+
+  /* == iteration based Riccati solution (continuous) == */
+  // discritization
+  const double dt = 0.001;
+  Eigen::MatrixXd I = Eigen::MatrixXd::Identity(dim_x, dim_x);
+  Eigen::MatrixXd Ad = Eigen::MatrixXd::Zero(dim_x, dim_x);
+  Ad = (I + 0.5 * dt * A) * (I - 0.5 * dt * A).inverse();
+  Eigen::MatrixXd Bd;
+  Bd = B * dt;
+
+  std::cout << "-- Iteration based method (discritized)--" << std::endl;
+  start = clock();
+  solveRiccatiIterationD(Ad, Bd, Q, R, P);
+   end = clock();
   std::cout << "computation time = " << (double)(end - start) / CLOCKS_PER_SEC
             << "sec." << std::endl;
   PRINT_MAT(P);
