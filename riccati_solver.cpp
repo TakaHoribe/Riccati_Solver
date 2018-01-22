@@ -1,3 +1,12 @@
+/*
+// solvers for Algebraic Riccati equation
+// - Iteration (continuous)
+// - Iteration (discrete)
+// - Arimoto-Potter
+//
+// author: Horibe Takamasa
+*/
+
 #include <Eigen/Dense>
 #include <iostream>
 #include <time.h>
@@ -46,7 +55,7 @@ bool solveRiccatiIterationD(const Eigen::MatrixXd &Ad,
 
   double diff;
   for (uint i = 0; i < iter_max; ++i) {
-    // -- discritized solver --
+    // -- discrete solver --
     P_next = AdT * P * Ad -
              AdT * P * Bd * (R + BdT * P * Bd).inverse() * BdT * P * Ad + Q;
 
@@ -136,8 +145,8 @@ int main() {
             << "sec." << std::endl;
   PRINT_MAT(P);
 
-  /* == iteration based Riccati solution (continuous) == */
-  // discritization
+  /* == iteration based Riccati solution (discrete) == */
+  // discretization
   const double dt = 0.001;
   Eigen::MatrixXd I = Eigen::MatrixXd::Identity(dim_x, dim_x);
   Eigen::MatrixXd Ad = Eigen::MatrixXd::Zero(dim_x, dim_x);
@@ -145,10 +154,10 @@ int main() {
   Eigen::MatrixXd Bd;
   Bd = B * dt;
 
-  std::cout << "-- Iteration based method (discritized)--" << std::endl;
+  std::cout << "-- Iteration based method (discrete)--" << std::endl;
   start = clock();
   solveRiccatiIterationD(Ad, Bd, Q, R, P);
-   end = clock();
+  end = clock();
   std::cout << "computation time = " << (double)(end - start) / CLOCKS_PER_SEC
             << "sec." << std::endl;
   PRINT_MAT(P);
